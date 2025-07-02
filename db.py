@@ -1,27 +1,54 @@
-import json
-from pathlib import Path
+import boto3
+from botocore.exceptions import ClientError
 
-DB_PATH = Path("pokemons.json")
-
-
-def load_db():
-    if not DB_PATH.exists():
-        return {}
-    with open(DB_PATH, "r") as f:
-        return json.load(f)
+dynamodb = boto3.resource('dynamodb',  region_name="us-west-2")
+table_name = 'pokemons'
 
 
-def save_db(db):
-    with open(DB_PATH, "w") as f:
-        json.dump(db, f, indent=2)
+def get_table():
+    try:
+        table = dynamodb.Table(table_name)
+        table.load()
+        return table
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            return create_table()
+        else:
+            raise e
+
+
+def create_table():
+    print("Creating Pokemon table in DynamoDB...")
+    table = dynamodb.create_table(
+        TableName=table_name,
+        KeySchema=[
+            {
+                'AttributeName': 'name',
+                'KeyType': 'HASH'
+            }
+        ],
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'name',
+                'AttributeType': 'S'
+            }
+        ],
+        BillingMode='PAY_PER_REQUEST'
+    )
+
+    table.wait_until_exists()
+    print(f"Table {table_name} created successfully!")
+    return table
 
 
 def get_pokemon_from_db(name):
-    db = load_db()
-    return db.get(name)
+    table = get_table()
+    response = table.get_item(Key={'name': name})
+    return response.get('Item')
+
 
 
 def add_pokemon_to_db(pokemon):
-    db = load_db()
-    db[pokemon["name"]] = pokemon
-    save_db(db)
+    table = get_table()
+    response = table.put_item(Item=pokemon)
+    return response

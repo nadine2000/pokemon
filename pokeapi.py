@@ -5,7 +5,7 @@ POKEAPI_BASE_URL = "https://pokeapi.co/api/v2"
 
 
 def get_all_pokemon_names():
-    response = requests.get(f"{POKEAPI_BASE_URL}/pokemon?limit=100")
+    response = requests.get(f"{POKEAPI_BASE_URL}/pokemon?limit=10")
     response.raise_for_status()
     return [pokemon['name'] for pokemon in response.json()['results']]
 
